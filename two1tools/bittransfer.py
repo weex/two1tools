@@ -3,10 +3,14 @@ import json
 import time
 import requests
 
+from flask import Flask
+from flask import request
+
 from two1.lib.bitserv.payment_methods import BitTransfer
 from two1.lib.wallet import Wallet
 from two1.commands.config import Config
 
+app = Flask(__name__)
 
 def send_bittransfer_cli():
     """CLI wrapper for send_bittransfer.
@@ -21,15 +25,28 @@ def send_bittransfer_cli():
         description = ""
     send_bittransfer(payee_username, amount, description).raise_for_status()
 
-
-def send_bittransfer(payee_username, amount, description=""):
+@app.route('/pay', methods=['GET'])
+def pay():
     """Create and redeem a bittransfer."""
     wallet = Wallet()
     username = Config().username
+
+    payee_username = request.args.get('payee_username')
+    amount = request.args.get('amount')
+    description = request.args.get('description')
+    token = request.args.get('token')  # in the browser's script
+
+
+    if token != 'yoursecrettokenupinheaah':
+        return 'bad token'
+
+    if int(amount) > 10:
+        return 'too muchy'
+
     bittransfer, signature = create_bittransfer(
         wallet, username, payee_username, amount, description)
-    return redeem_bittransfer(bittransfer, signature, payee_username)
-
+    res = redeem_bittransfer(bittransfer, signature, payee_username)
+    return str(res)
 
 def get_bittransfer(request):
     """Get the bittransfer header from a request.
@@ -80,3 +97,7 @@ def redeem_bittransfer(bittransfer, signature, payee_username):
                          data=json.dumps({'bittransfer': bittransfer,
                                           'signature': signature}),
                          headers={'content-type': 'application/json'})
+
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5150)
